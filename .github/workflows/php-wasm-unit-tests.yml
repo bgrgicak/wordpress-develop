@@ -1,0 +1,67 @@
+name: PHP-WASM Unit Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: testdb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h"127.0.0.1" -uroot -proot --silent; then
+              echo "MySQL is up!"
+              break
+            fi
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+
+      - name: Install Composer
+        run: |
+          curl -sS https://getcomposer.org/installer | php
+          mv composer.phar /usr/local/bin/composer
+          composer install
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare wp-tests-config.php
+        run: |
+          cp wp-tests-config.php.dist wp-tests-config.php
+          sed -i 's/define(\s*'\''DB_NAME'\'',\s*'\''.*'\''\s*)/define('\''DB_NAME'\'', '\''testdb'\'')/' wp-tests-config.php
+          sed -i 's/define(\s*'\''DB_USER'\'',\s*'\''.*'\''\s*)/define('\''DB_USER'\'', '\''root'\'')/' wp-tests-config.php
+          sed -i 's/define(\s*'\''DB_PASSWORD'\'',\s*'\''.*'\''\s*)/define('\''DB_PASSWORD'\'', '\''root'\'')/' wp-tests-config.php
+          sed -i 's/define(\s*'\''DB_HOST'\'',\s*'\''.*'\''\s*)/define('\''DB_HOST'\'', '\''127.0.0.1'\'')/' wp-tests-config.php
+
+      - name: Run tests
+        run: |
+          npx @php-wasm/cli@1.1.2 \
+            ./vendor/bin/phpunit \
+            tests/phpunit/tests/comment/*
