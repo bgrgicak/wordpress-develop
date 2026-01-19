@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/bgrgicak/wp-tester/trunk/packages/config/src/schema.json",
+  "projectType": "other",
+  "projectVFSPath": "/project",
+  "tests": {
+    "phpunit": {
+      "phpunitPath": "vendor/bin/phpunit",
+      "configPath": "phpunit.xml.dist",
+      "testMode": "unit",
+      "phpunitArgs": [
+        "--testsuite",
+        "default",
+        "--group",
+        "option,meta,query,post,user,term,comment,date,l10n"
+      ]
+    }
+  },
+  "environments": [
+    {
+      "name": "WordPress Core Tests",
+      "php": ["8.3"],
+      "blueprint": {
+        "steps": [
+          {
+            "step": "runPHP",
+            "code": "<?php\nrequire_once '/wordpress/wp-load.php';\n$site_url = home_url();\n$domain = parse_url($site_url, PHP_URL_HOST);\n$port = parse_url($site_url, PHP_URL_PORT);\nif ($port) {\n    $domain .= ':' . $port;\n}\ndefine('WP_HOME', $site_url);\ndefine('WP_SITEURL', $site_url);\ndefine('WP_TESTS_DOMAIN', $domain);\n?>"
+          }
+        ]
+      },
+      "mounts": [
+        {
+          "hostPath": "src",
+          "vfsPath": "/wordpress",
+          "beforeInstall": true
+        },
+        {
+          "hostPath": ".",
+          "vfsPath": "/project"
+        }
+      ],
+      "env": {
+        "WP_TESTS_DIR": "/project/tests/phpunit"
+      }
+    }
+  ],
+  "reporters": {}
+}
